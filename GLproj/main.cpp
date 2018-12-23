@@ -177,7 +177,7 @@ void processPassiveMouseMotion(int x, int y) {
 		
 		if (x != centerX || y != centerY) {
 			glutWarpPointer(centerX, centerY);
-			cam.MoveCam(0, camx, camy, 0);
+			cam.MoveCam(0,0, camx, camy, 0);
 			Set_cam();
 			glutPostRedisplay();
 		}
@@ -193,31 +193,35 @@ void processPassiveMouseMotion(int x, int y) {
 
 void keyboard(unsigned char key, int x, int y)	
 {
+
+	float forward = 0;
+	float right = 0;
+	float tilt = 0;
 	switch (key)
 	{
-		
 	case 'w':
-		cam.MoveCam(1,0,0,0);
+		forward += 1;
 		break;
 	case 's':
-		cam.MoveCam(-1, 0, 0, 0);
+
+		forward -= 1;
 		break;
 	case 'a':
-		
+		right += 1;
 		break;
 	case 'd':
-		
+		right -= 1;
 		break;
-	case 'r':
-		
+	case 'q':
+		tilt += 0.05;
 		break;
-	case 'f':
-		
+	case 'e':
+		tilt -= 0.05;
 		break;
 	default:
 		break;
 	}
-
+	cam.MoveCam(forward, right, 0, 0, tilt);
 	Set_cam();
 	glutPostRedisplay();
 }
@@ -328,6 +332,7 @@ int main(int argc, char **argv)
 	shaderwrap->checkOpenGLerror();
 	set_light();
 	//Set_cam();
+	glutSetCursor(GLUT_CURSOR_NONE);
 	glutMainLoop();
 
 	return 0;         

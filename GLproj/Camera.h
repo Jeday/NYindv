@@ -18,7 +18,7 @@ class Camera
 
 public:
 	Camera(glm::vec3 eye, glm::vec3 target , glm::vec3  up);
-	void MoveCam(float forward, float anglex, float angley, float tilt = 0);
+	void MoveCam(float fd, float rd, float anglex, float angley, float tilt = 0);
 	glm::mat4 getViewMatrix();
 	void ReposeCam(glm::vec3 eye, glm::vec3 target, glm::vec3  up);
 	glm::vec3 get_eye();

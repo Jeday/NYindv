@@ -28,7 +28,7 @@ Camera::Camera(glm::vec3 eye, glm::vec3 target, glm::vec3 _up)
 
 
 
-void Camera::MoveCam(float fd, float anglex, float angley, float tilt)
+void Camera::MoveCam(float fd,float rd, float anglex, float angley, float tilt)
 {
 	glm::mat3 rot;
 	if (tilt != 0) {
@@ -36,18 +36,21 @@ void Camera::MoveCam(float fd, float anglex, float angley, float tilt)
 		up = rot * up;
 		right = rot * right;
 	}
-	if (anglex !=0) {
+	if (anglex != 0) {
 		rot = glm::mat3(glm::rotate(anglex, up)); // yawn
 		forward = rot * forward;
 		right = rot * right;
 	}
+
 	if (angley != 0) {
 		rot = glm::mat3(glm::rotate(angley, right)); //pitch
 		forward = rot * forward;
 		up = rot * up;
 	}
+	
 	if (fd != 0) {
 		pos -=forward * fd;
+		pos += right * rd;
 	}
 
 	bake_transform();
