@@ -18,34 +18,49 @@
 #include "GLobject.h"
 #include "Camera.h"
 
-int w = 0, h = 0;
+
 std::vector<GLobject*> scene;
-
 GLShader * shaderwrap;
-
+int VertShaderPhong, FragShaderPhong;
 std::vector<int> VertShaders;
 std::vector<int> FragShaders;
 glm::mat4 Matrix_projection;
 
+int w = 0, h = 0;
 float rotateX = 0;
 float rotateY = 0;
 float scaleX = 1;
 float scaleY = 1;
 
-int VertShaderPhong, FragShaderPhong;
-GLuint tex1, tex2, tex;
-int mode = 0;
 
-glm::vec3 eye {100,0,0};
-float dist = eye[0];
-glm::vec4 light_position, light_ambient, light_diffuse, light_specular;
-glm::vec3 light_attenuation;
+//x: -80..80, y: -80..80
+std::vector<glm::mat4> forest{
+	
 
-glm::vec4 light_target;
+};
+
+
+
+
+std::vector<glm::mat4> SingleEmptyInstance{
+	glm::mat4(1.0f)
+};
+
+std::vector<std::vector<glm::mat4>> instancing_trasforms{
+	SingleEmptyInstance, // ground
+	SingleEmptyInstance, // snowbase
+	forest, // trees
+	SingleEmptyInstance,
+	SingleEmptyInstance,
+};
+
+
 int oldTimeSinceStart = 0;
 bool animate = false;
 
 float angle = 0;
+
+
 
 Camera cam(glm::vec3(10.0f,0,10.0f), glm::vec3(0, 0, 0), glm::vec3(0, 0, 1));
 
@@ -66,6 +81,7 @@ public:
 	float spot_exp;
 };
 
+
 std::vector<Light> lights;
 
 std::vector<std::string> pathsVert = {
@@ -85,6 +101,8 @@ void Init(void)
 {
 	glClearColor(0, 0, 0, 1.0f);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void Set_cam() {
@@ -106,16 +124,28 @@ void Reshape(int x, int y)
 
 void set_light() {
 	
+
 	Light l2;
 	l2.light_position = { 0,0,10,1 };
 	l2.light_ambient = { 0.2,0.2,0.2,1 };
-	l2.light_diffuse = { 0.6,0.6,0.6,1 };
-	l2.light_specular = { 0.5,0.5,0.5,1 };
+	l2.light_diffuse = { 0.3,0.3,0.3,1 };
+	l2.light_specular = { 0.1,0.1,0.1,1 };
 	l2.light_attenuation = { 0,0,0 };
 	l2.spot_direction = { 0, 0, -1 };
 	l2.spot_cutoff = 0;
 	l2.spot_exp = 0;
 	lights.push_back(l2);
+
+	Light l1;
+	l1.light_position = { 0,0,7,1 };
+	l1.light_ambient = { 0.2,0.2,0.2,1 };
+	l1.light_diffuse = { 0.6,0.6,0.0,1 };
+	l1.light_specular = { 0.7,0.7,0.0,1 };
+	l1.light_attenuation = { 0,0,0.03 };
+	l1.spot_direction = { 0, 0, -1 };
+	l1.spot_cutoff = std::cos(glm::radians(40.0f));
+	l1.spot_exp = 50;
+	lights.push_back(l1);
 }
 
 void Update(void) {
@@ -123,14 +153,10 @@ void Update(void) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glUseProgram(shaderwrap->ShaderProgram);
-
-	
 	shaderwrap->setUniformmat4("transform_viewProjection", false, Matrix_projection);
 	shaderwrap->setUniformfv3("transform_viewPosition", cam.get_eye());
 	shaderwrap->setUniform1s("material_texture", 0);
-
 	shaderwrap->setUniform1i("lcount", lights.size());
-
 	for (int i = 0; i < lights.size(); ++i) {
 		std::string prefix = "l[" + std::to_string(i) + "].";
 		shaderwrap->setUniformfv4(prefix+"light_position", lights[i].light_position);
@@ -150,12 +176,17 @@ void Update(void) {
 		shaderwrap->setUniformfv4("material_specular", scene[i]->material_specular);
 		shaderwrap->setUniformfv4("material_emission", scene[i]->material_emission);
 		shaderwrap->setUniform1f("material_shininess", scene[i]->material_shininess);
-		shaderwrap->setUniformmat4("transform_model", false, scene[i]->object_transformation);
-		glm::mat3 transform_normal = glm::inverseTranspose(glm::mat3(scene[i]->object_transformation));
-		shaderwrap->setUniformmat3("transform_normal", false, transform_normal);
-		shaderwrap->setUniform1b("use_texture", scene[i]->use_texture);
 		
-		scene[i]->drawObject();
+		shaderwrap->setUniform1b("use_texture", scene[i]->use_texture);	
+		for (size_t j = 0; j < instancing_trasforms[i].size();j++)
+		{
+			auto trsf = instancing_trasforms[i][j] * scene[i]->object_transformation;
+			glm::mat3 transform_normal = glm::inverseTranspose(glm::mat3(trsf));
+			shaderwrap->setUniformmat4("transform_model", false, trsf );
+			shaderwrap->setUniformmat3("transform_normal", false, transform_normal);
+			scene[i]->drawObject();
+		}
+		
 	}
 
 	glUseProgram(0);
@@ -188,9 +219,6 @@ void processPassiveMouseMotion(int x, int y) {
 }
 
 
-
-
-
 void keyboard(unsigned char key, int x, int y)	
 {
 
@@ -199,6 +227,9 @@ void keyboard(unsigned char key, int x, int y)
 	float tilt = 0;
 	switch (key)
 	{
+	case 'W':
+		forward += 2;
+		break;
 	case 'w':
 		forward += 1;
 		break;
@@ -285,16 +316,53 @@ void animate_tree() {
 
 void load_scene() {
 	
-	scene.push_back(GLobject::draw_ground(-80, 80, -60, 60, 10, 10));                 
-		
+
+	// scene
+	// 0 - ground
+	// 1 - snow base
+	// 2 - tree
+	scene.push_back(GLobject::draw_ground(-80, 80, -80, 80, 50, 50));             
 	scene[0]->material_ambient = { 0.2, 0.2, 0.2, 1 };
 	scene[0]->material_diffuse = { 0.7, 0.7, 0.7, 1 };
 	scene[0]->material_specular = { 0.7, 0.7, 0.7, 1 };
+	scene[0]->use_texture = true;
+	scene[0]->texture = SOIL_load_OGL_texture("resourses/snow.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_MULTIPLY_ALPHA | SOIL_FLAG_INVERT_Y);
 	
-
-
+#ifndef _DEBUG
+	scene.push_back(new GLobject("resourses/snow base.obj",""));
+	scene[1]->object_transformation *= glm::translate(glm::vec3{ 5,5,0.8f }) *glm::rotate(glm::radians(90.0f), glm::vec3{ 0,0,1 }) * glm::rotate(glm::radians(90.0f), glm::vec3{ 1,0,0 })*glm::scale(glm::vec3{ 0.3,0.3,0.3 });
+	scene.push_back(new GLobject("resourses/lowpolytree.obj", "", glm::vec3{0,1,0}));
+	scene[2]->object_transformation *= glm::translate(glm::vec3{ 0,0,0.3f }) * glm::rotate(glm::radians(90.0f), glm::vec3{ 1,0,0 });
+	scene.push_back(new GLobject("resourses/fireplace.obj", "resourses/fireplaceF.png"));
+	scene[3]->object_transformation *= glm::translate(glm::vec3{ 0,0,-0.01 }) * glm::rotate(glm::radians(90.0f), glm::vec3{ 1,0,0 })* glm::scale(glm::vec3{ 0.1,0.1,0.1});
+	scene[3]->material_emission = glm::vec4{ 0.5f,0.5f,0.5,1};
+	scene.push_back(new GLobject("resourses/dome_tent.obj", "resourses/tent2.tga"));
+	scene[4]->object_transformation*= glm::translate(glm::vec3{ 0,4.5f,0 }) *glm::rotate(glm::radians(90.0f), glm::vec3{ 1,0,0 })* glm::scale(glm::vec3{ 0.02,0.02,0.02 });
+#endif
+	for (size_t i = 0; i < scene.size(); i++)
+	{
+		scene[i]->BindAttributesToShader(*shaderwrap);
+	}
 }
 
+void make_forest(int sz,float rscene) {
+	std::vector<glm::mat4> forest;
+	forest.reserve(sz);
+	rscene *= rscene;
+	for (size_t i = 0; i < sz; i++)
+	{	
+		float x = rand() % 160 - 80;
+		float y = rand() % 160 - 80;
+		float scl = 0.8 + 0.6 * (rand() % 1000) / 1000.0;
+		while (x*x + y * y < rscene) {
+			x = rand() % 160 - 80;
+			y = rand() % 160 - 80;
+
+		}
+		forest.push_back(glm::translate(glm::vec3{ x,y,0 })* glm::scale(glm::vec3(1,1,scl)));
+	}
+	instancing_trasforms[2] = forest;
+}
 
 int main(int argc, char **argv)
 {
@@ -305,33 +373,31 @@ int main(int argc, char **argv)
 	glutInitWindowSize(800, 600);
 	w = 800;
 	h = 600;
-	glutCreateWindow("OpenGL");
+	glutCreateWindow("Happy New Year!");
 	glEnable(GL_DEPTH_TEST);
-	
 	glutDisplayFunc(Update);
 	glutReshapeFunc(Reshape);
 	glutKeyboardFunc(keyboard);
 	glutSpecialFunc(specialKey);
 	glutPassiveMotionFunc(processPassiveMouseMotion);
-	//glutIdleFunc(animate_tree);
 	GLenum err = glewInit();
 	if (GLEW_OK != err)
 		std::cout << glewGetErrorString(err) << std::endl;
-
 	Init();
 
+	make_forest(2000,10);
 	shaderwrap = new GLShader();
-	
 	LoadShaders();
+	shaderwrap->linkProgram(VertShaderPhong, FragShaderPhong);
+	
+	
 
 	load_scene();
 
-	shaderwrap->linkProgram(VertShaderPhong, FragShaderPhong);
-	for (int i = 0; i < scene.size(); ++i)
-		scene[i]->BindAttributesToShader(*shaderwrap);
+	
+	
 	shaderwrap->checkOpenGLerror();
 	set_light();
-	//Set_cam();
 	glutSetCursor(GLUT_CURSOR_NONE);
 	glutMainLoop();
 

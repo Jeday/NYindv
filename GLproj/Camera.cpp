@@ -49,8 +49,10 @@ void Camera::MoveCam(float fd,float rd, float anglex, float angley, float tilt)
 	}
 	
 	if (fd != 0) {
-		pos -=forward * fd;
-		pos += right * rd;
+		pos -= forward * fd;
+	}
+	if (rd != 0) {
+		pos -= right * rd;
 	}
 
 	bake_transform();

@@ -12,13 +12,16 @@ GLobject::GLobject(std::string path, std::string pathtex, glm::vec3 clr, glm::ve
 	bool force_normal = norm != glm::vec3{ 0, 0, 0 };
 	objl::Loader modelloader;
 	modelloader.LoadFile(path);
-	count_indexes = modelloader.LoadedIndices.size();
-	count_vertex = modelloader.LoadedVertices.size();
+	auto mesh = modelloader.LoadedMeshes[0];
+	count_indexes = mesh.Indices.size();
+	count_vertex = mesh.Vertices.size();
 	if (pathtex != "")
 		texture = SOIL_load_OGL_texture(pathtex.c_str(), SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_MULTIPLY_ALPHA | SOIL_FLAG_INVERT_Y);
 	else
 		texture = -1;
 	use_texture = texture != -1;
+
+	
 
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &IBO);
@@ -35,27 +38,27 @@ GLobject::GLobject(std::string path, std::string pathtex, glm::vec3 clr, glm::ve
 	glBindVertexArray(VAO);
 
 	
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);	glBufferData(GL_ARRAY_BUFFER, len*modelloader.LoadedVertices.size(), NULL, GL_STATIC_DRAW);
-	GLfloat * mapped_data = (GLfloat *)glMapBufferRange(GL_ARRAY_BUFFER, 0, len*modelloader.LoadedVertices.size(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);	glBufferData(GL_ARRAY_BUFFER, len*count_vertex, NULL, GL_STATIC_DRAW);
+	GLfloat * mapped_data = (GLfloat *)glMapBufferRange(GL_ARRAY_BUFFER, 0, len*count_vertex, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
 	int ind = 0;
 	for (size_t i = 0; i < count_vertex; ++i)
 	{
-		mapped_data[ind++] = modelloader.LoadedVertices[i].Position.X;
-		mapped_data[ind++] = modelloader.LoadedVertices[i].Position.Y;
-		mapped_data[ind++] = modelloader.LoadedVertices[i].Position.Z;
+		mapped_data[ind++] = mesh.Vertices[i].Position.X;
+		mapped_data[ind++] = mesh.Vertices[i].Position.Y;
+		mapped_data[ind++] = mesh.Vertices[i].Position.Z;
 		mapped_data[ind++] = 1;
 		if (!force_normal) {
-			mapped_data[ind++] = modelloader.LoadedVertices[i].Normal.X;
-			mapped_data[ind++] = modelloader.LoadedVertices[i].Normal.Y;
-			mapped_data[ind++] = modelloader.LoadedVertices[i].Normal.Z;
+			mapped_data[ind++] = mesh.Vertices[i].Normal.X;
+			mapped_data[ind++] = mesh.Vertices[i].Normal.Y;
+			mapped_data[ind++] = mesh.Vertices[i].Normal.Z;
 		}
 		else {
 			mapped_data[ind++] = norm.x;
 			mapped_data[ind++] = norm.y;
 			mapped_data[ind++] = norm.z;
 		}
-		mapped_data[ind++] = modelloader.LoadedVertices[i].TextureCoordinate.X;
-		mapped_data[ind++] = modelloader.LoadedVertices[i].TextureCoordinate.Y;
+		mapped_data[ind++] = mesh.Vertices[i].TextureCoordinate.X;
+		mapped_data[ind++] = mesh.Vertices[i].TextureCoordinate.Y;
 		mapped_data[ind++] = clr.r;
 		mapped_data[ind++] = clr.g;
 		mapped_data[ind++] = clr.b;
@@ -69,13 +72,13 @@ GLobject::GLobject(std::string path, std::string pathtex, glm::vec3 clr, glm::ve
 	indeces = new GLushort[count_indexes];
 	for (size_t i = 0; i < count_indexes; i++)
 	{
-		indeces[i] = modelloader.LoadedIndices[i];
+		indeces[i] = mesh.Indices[i];
 	}
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, count_indexes * sizeof(GLushort), indeces, GL_STATIC_DRAW);
 	delete indeces;
 	glBindVertexArray(0);
 
-	auto mat =  modelloader.LoadedMeshes[0].MeshMaterial;
+	auto mat =  mesh.MeshMaterial;
 	material_ambient = {mat.Ka.X,mat.Ka.Y, mat.Ka.Z,1};
 	material_diffuse = { mat.Kd.X,mat.Kd.Y, mat.Kd.Z,1 };
 	material_specular = { mat.Ks.X,mat.Ks.Y, mat.Ks.Z,1 };
@@ -125,15 +128,15 @@ GLobject* GLobject::draw_ground(GLdouble x0, GLdouble x1, GLdouble y0, GLdouble 
 		{
 			
 			// 0
-			mapped_data[ind++] = x;
-			mapped_data[ind++] = y;
-			mapped_data[ind++] = 0;
-			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 0;
-			mapped_data[ind++] = 0;
-			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 0;
-			mapped_data[ind++] = 0;
+			mapped_data[ind++] = x; //x
+			mapped_data[ind++] = y; //y
+			mapped_data[ind++] = 0; //z
+			mapped_data[ind++] = 1; //w
+			mapped_data[ind++] = 0;// nx
+			mapped_data[ind++] = 0;// ny
+			mapped_data[ind++] = 1;// nz
+			mapped_data[ind++] = 0; // tx
+			mapped_data[ind++] = 0; // ty
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
@@ -147,8 +150,8 @@ GLobject* GLobject::draw_ground(GLdouble x0, GLdouble x1, GLdouble y0, GLdouble 
 			mapped_data[ind++] = 0;
 			mapped_data[ind++] = 0;
 			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 0;
+			mapped_data[ind++] = 0;//tx
+			mapped_data[ind++] = 1; //ty
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
@@ -161,9 +164,9 @@ GLobject* GLobject::draw_ground(GLdouble x0, GLdouble x1, GLdouble y0, GLdouble 
 			mapped_data[ind++] = 0;
 			mapped_data[ind++] = 0;
 			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 0;
-			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 1;
+			mapped_data[ind++] = 1;// tx
+			mapped_data[ind++] = 0; // yt
+			mapped_data[ind++] = 1; 
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
 			
@@ -176,8 +179,8 @@ GLobject* GLobject::draw_ground(GLdouble x0, GLdouble x1, GLdouble y0, GLdouble 
 			mapped_data[ind++] = 0;
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 1;
-			mapped_data[ind++] = 1;
+			mapped_data[ind++] = 1;// tx
+			mapped_data[ind++] = 1;// ty
 			mapped_data[ind++] = 1;
 			mapped_data[ind++] = 1;
 			

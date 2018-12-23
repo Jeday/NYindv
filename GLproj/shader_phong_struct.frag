@@ -82,4 +82,6 @@ void main(){
 		color *= texture(material_texture, vert_texcoord);
 	else
 		color *= vec4(vert_color, 1.0);
+	if(color.a == 0)
+		discard; 
 }
